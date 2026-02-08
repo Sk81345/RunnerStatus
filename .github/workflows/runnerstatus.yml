@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Install jq
-        run: sudo apt-get install -y jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       # -----------------------------
       # Step 1: Fetch ORG-level runners
@@ -26,12 +26,13 @@ jobs:
             > org_runners.json
 
           echo "Org runners:"
-          cat org_runners.json | jq '.runners[]?.name, .runners[]?.status'
+          jq -r '.runners[] | "\(.name) - \(.status)"' org_runners.json
 
       # -----------------------------
       # Step 2: Fetch REPO-level runners
       # -----------------------------
       - name: Fetch repository runners
+        shell: bash
         run: |
           REPOS=("repo1" "repo2" "repo3")
 
@@ -45,26 +46,28 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               https://api.github.com/repos/Sk81345/$repo/actions/runners)
 
-            # Skip repos with no runners or access issues
             echo "$RESPONSE" | jq -e '.runners' > /dev/null || continue
-
             echo "$RESPONSE" | jq '.runners[]' >> repo_runners_all.json
           done
-       - name: List Org Runners
-         shell: pwsh
-         run: |
-            $token = "${{ secrets.ORG_RUNNER_TOKEN }}"
-        
-            curl -i `
-              -H ("Authorization: Bearer " + $token) `
-              -H "Accept: application/vnd.github+json" `
-              https://api.github.com/orgs/Sk81345/actions/runners
 
       # -----------------------------
-      # Step 3: Evaluate offline runners
+      # Step 3: (Optional) Debug Org Runners via PowerShell
+      # -----------------------------
+      - name: List Org Runners (PowerShell)
+        shell: pwsh
+        run: |
+          $token = "${{ secrets.ORG_RUNNER_TOKEN }}"
+          curl -i `
+            -H ("Authorization: Bearer " + $token) `
+            -H "Accept: application/vnd.github+json" `
+            https://api.github.com/orgs/Sk81345/actions/runners
+
+      # -----------------------------
+      # Step 4: Evaluate offline runners
       # -----------------------------
       - name: Evaluate runner status
         id: evaluate
+        shell: bash
         run: |
           OFFLINE_ORG=$(jq '[.runners[] | select(.status=="offline")] | length' org_runners.json)
           OFFLINE_REPO=$(jq '[select(.status=="offline")] | length' repo_runners_all.json)
@@ -78,10 +81,11 @@ jobs:
           echo "offline_count=$TOTAL_OFFLINE" >> $GITHUB_OUTPUT
 
       # -----------------------------
-      # Step 4: Prepare summary
+      # Step 5: Prepare summary
       # -----------------------------
       - name: Prepare offline runner summary
         if: steps.evaluate.outputs.offline_count != '0'
+        shell: bash
         run: |
           echo "===== OFFLINE ORG RUNNERS ====="
           jq -r '.runners[] | select(.status=="offline") | .name' org_runners.json
