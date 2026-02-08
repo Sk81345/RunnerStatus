@@ -50,6 +50,15 @@ jobs:
 
             echo "$RESPONSE" | jq '.runners[]' >> repo_runners_all.json
           done
+       - name: List Org Runners
+         shell: pwsh
+         run: |
+            $token = "${{ secrets.ORG_RUNNER_TOKEN }}"
+        
+            curl -i `
+              -H ("Authorization: Bearer " + $token) `
+              -H "Accept: application/vnd.github+json" `
+              https://api.github.com/orgs/Sk81345/actions/runners
 
       # -----------------------------
       # Step 3: Evaluate offline runners
