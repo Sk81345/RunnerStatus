@@ -28,7 +28,7 @@ jobs:
         run: |
           OWNER="skc949"
           CSV="github_runners.csv"
-
+           gh api /repos/skc949/RunnerStatus/actions/runners
           echo "Repository,RunnerName,OS,Status,Busy" > $CSV
 
           # Get repositories
